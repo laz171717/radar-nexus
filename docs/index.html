@@ -86,6 +86,7 @@ th{color:var(--sub);font-weight:600;font-size:12px}
   </div>
   <nav id="tabs">
     <button data-tab="temas" class="on">🔥 Tendencias</button>
+    <button data-tab="redes">📱 Redes sociales</button>
     <button data-tab="google">🔎 Lo más buscado</button>
     <button data-tab="wiki">📚 Wikipedia en alza</button>
     <button data-tab="guardados">⭐ Guardados</button>
@@ -167,6 +168,8 @@ function tarjeta(t){
   const flecha = t.tendencia==="subiendo" ? '<span class="tag sube">↑ Subiendo</span>' : t.tendencia==="enfriando" ? '<span class="tag baja">↓ Enfriando</span>' : '<span class="tag">→ Estable</span>';
   const busq = t.busquedas ? `<span class="tag busq">🔎 ${num(t.busquedas)} búsquedas ${t.paises_trends.join(" ")}</span>` : "";
   const wiki = t.wikipedia.length ? `<span class="tag">📚 Wikipedia en alza</span>` : "";
+  const xs_ = [...new Set((t.x||[]).map(x=>x.termino))];
+  const redes = (t.redes||[]).length ? `<span class="tag sube" title="${esc(xs_.join(", "))}">📱 En redes: ${esc(t.redes.join(", "))}${xs_.length?" ("+esc(xs_.slice(0,2).join(", "))+")":""}</span>` : "";
   const id = idTema(t), g = !!guardados[id], h = esHecho(t);
   const qtr = encodeURIComponent((t.terminos_trends[0]) || (t.palabras.slice(0,3).join(" ")) || t.titulo);
   const qtt = encodeURIComponent(t.titulo_es.split(/[:,.;—–-]/)[0].slice(0,60));
@@ -182,7 +185,7 @@ function tarjeta(t){
       ${flecha}
       <span class="tag">🕒 ${hace(t.primera)}</span>
       <span class="tag">📰 ${t.n_medios} medios</span>
-      ${busq}${wiki}
+      ${busq}${redes}${wiki}
       <span class="tag ${t.semaforo}" title="${esc(t.motivos.join(", "))}">${sem[0]} ${sem[1]}</span>
       <span class="tag">${esc(t.categoria)}</span>
       <span class="tag">${esc(t.regiones.join(" · "))}</span>
@@ -281,6 +284,44 @@ function pintarGoogle(){
   $("#f-pais").onchange = e => { st.paisG = e.target.value; pintar(); };
 }
 
+function pintarRedes(){
+  const R = DATOS.redes || {x:{}, bluesky:[], mastodon:[]};
+  const paisesX = [["worldwide","🌍 Mundo"],["united-states","🇺🇸 EE. UU."],["united-kingdom","🇬🇧 R. Unido"],["spain","🇪🇸 España"],["mexico","🇲🇽 México"],["argentina","🇦🇷 Argentina"],["colombia","🇨🇴 Colombia"]];
+  const px = st.paisX || "worldwide";
+  const sec = st.redSec || "x";
+  const xs = (R.x[px]||[]);
+  const maxX = Math.max(1, ...xs.map(t=>t.posts));
+  let h = `<div class="filtros">${grupoBotones("","redSec",[["x","𝕏 X (Twitter)"],["bluesky","🦋 Bluesky"],["mastodon","🐘 Mastodon"],["otras","TikTok / Instagram"]])}</div>`;
+  if (sec==="x"){
+    h += `<div class="filtros"><select id="f-paisx">${paisesX.map(([v,l])=>`<option value="${v}" ${v===px?"selected":""}>${l}</option>`).join("")}</select></div>
+    <div class="resumen">Lo que está en tendencia en X en la última hora. Toca un tema para ver las publicaciones.</div>
+    <table><tr><th>#</th><th>Tendencia en X</th><th>Publicaciones</th></tr>
+    ${xs.map((t,i)=>`<tr><td>${i+1}</td><td><a href="${esc(t.link)}" target="_blank" rel="noopener"><b>${esc(t.termino)}</b></a></td><td>${t.posts?num(t.posts):"—"}${t.posts?`<div class="barra" style="width:${Math.max(6,100*t.posts/maxX)}%"></div>`:""}</td></tr>`).join("")}</table>`;
+  } else if (sec==="bluesky"){
+    h += `<div class="resumen">Temas del momento en Bluesky, con un resumen de qué está pasando.</div><div class="lista">
+    ${R.bluesky.map(b=>`<article class="card"><div class="titulo"><a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.tema)}</a></div>
+      ${b.descripcion?`<div class="orig" style="font-size:14px;color:var(--txt)">${esc(b.descripcion)}</div>`:""}
+      <div class="meta"><span class="tag">💬 ${num(b.posts||0)} publicaciones</span>${b.desde?`<span class="tag">🕒 ${hace(b.desde)}</span>`:""}${b.categoria?`<span class="tag">${esc(b.categoria)}</span>`:""}${b.estado==="hot"?'<span class="tag rojo">🔥 caliente</span>':""}</div></article>`).join("")}</div>`;
+  } else if (sec==="mastodon"){
+    h += `<div class="resumen">Las noticias que más está compartiendo la gente en Mastodon.</div>
+    <table><tr><th>Noticia compartida</th><th>Veces</th></tr>
+    ${R.mastodon.map(m=>`<tr><td><a href="${esc(m.link)}" target="_blank" rel="noopener">${esc(m.titulo)}</a><div class="orig">${esc(m.medio)}${m.fecha?" · "+hace(m.fecha):""}</div></td><td>${num(m.compartido)}</td></tr>`).join("")}</table>`;
+  } else {
+    h += `<div class="ayuda"><h3>TikTok, Instagram, Facebook y Threads</h3>Estas redes no dejan leer sus tendencias de forma gratis y automática. Ábrelas aquí directo:</div>
+    <div class="acciones" style="gap:10px">
+      <a href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/es" target="_blank" rel="noopener">🎵 TikTok: hashtags en tendencia</a>
+      <a href="https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/es" target="_blank" rel="noopener">🎵 TikTok: canciones en tendencia</a>
+      <a href="https://www.tiktok.com/explore" target="_blank" rel="noopener">🎵 TikTok Explorar</a>
+      <a href="https://www.youtube.com/feed/explore" target="_blank" rel="noopener">▶️ YouTube Explorar</a>
+      <a href="https://www.instagram.com/explore/" target="_blank" rel="noopener">📸 Instagram Explorar</a>
+      <a href="https://www.threads.net/search" target="_blank" rel="noopener">🧵 Threads</a>
+      <a href="https://news.google.com/" target="_blank" rel="noopener">📰 Google Noticias</a>
+    </div>`;
+  }
+  $("#main").innerHTML = h;
+  const fp = $("#f-paisx"); if (fp) fp.onchange = e => { st.paisX = e.target.value; pintar(); };
+}
+
 function pintarWiki(){
   const idi = st.wikiIdioma || "en";
   const xs = (DATOS.wikipedia[idi]||[]);
@@ -303,7 +344,8 @@ function pintarInfo(){
   $("#main").innerHTML = `<div class="ayuda"><h3>🔥 La puntuación (0-100)</h3><ul>
   <li>Sube cuando la <b>misma noticia</b> sale en muchos medios a la vez.</li>
   <li>Suma si la gente la está <b>buscando en Google</b> (Google Trends) y en cuántos países.</li>
-  <li>Suma si su página de <b>Wikipedia</b> se dispara y si se comenta en Reddit / Hacker News.</li>
+  <li>Suma si es <b>tendencia en X</b> (en cuántos países) y si se comenta en Bluesky, Mastodon o Hacker News (📱 En redes).</li>
+  <li>Suma si su página de <b>Wikipedia</b> se dispara.</li>
   <li>Suma más cuanto <b>más reciente</b> es.</li></ul></div>
   <div class="ayuda"><h3>↑ ↓ Subiendo o enfriando</h3>↑ = la mayoría de las publicaciones son de las últimas 6 horas. ↓ = nadie ha publicado nada nuevo en 12 horas.</div>
   <div class="ayuda"><h3>🟢🟡🔴 Semáforo TikTok</h3>🟢 tema tranquilo. 🟡 guerra, crimen, política: cuidar imágenes y palabras. 🔴 narco, tiroteos, muertes violentas, etc.: alto riesgo de que TikTok lo borre. Abre “Fuentes” para ver qué palabras evitar.</div>
@@ -316,7 +358,7 @@ function pintarInfo(){
 function pintar(){
   if (!DATOS) return;
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.tab===st.tab));
-  ({temas:pintarTemas, google:pintarGoogle, wiki:pintarWiki, guardados:pintarGuardados, info:pintarInfo})[st.tab]();
+  ({temas:pintarTemas, redes:pintarRedes, google:pintarGoogle, wiki:pintarWiki, guardados:pintarGuardados, info:pintarInfo})[st.tab]();
   document.querySelectorAll("[data-k]").forEach(b => { if (b.dataset.k!=="wikiIdioma") b.onclick = () => { const v=b.dataset.v; st[b.dataset.k] = isNaN(v)?v:Number(v); guardarFiltros(); pintar(); }; });
 }
 function guardarFiltros(){ const {tab, ...resto} = st; LS.set("radar_filtros", resto); }

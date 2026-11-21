@@ -236,6 +236,63 @@ def leer_wikipedia(idioma):
             break
     return idioma, out
 
+PAISES_X = [("worldwide", "", "Mundo"), ("united-states", "united-states/", "EE. UU."),
+            ("united-kingdom", "united-kingdom/", "Reino Unido"), ("spain", "spain/", "España"),
+            ("mexico", "mexico/", "México"), ("argentina", "argentina/", "Argentina"),
+            ("colombia", "colombia/", "Colombia")]
+
+X_COMUNES = set("""china russia rusia ukraine ucrania trump biden israel iran irán mexico méxico españa spain europe europa
+america américa canada canadá india japan japón france francia germany alemania brasil brazil costa time full today
+world mundo president presidente united states unidos police policía news noticias sunday monday friday saturday
+viernes sábado domingo lunes week semana game juego final""".split())
+
+def leer_x(pais):
+    """Tendencias de X (Twitter) de la última hora, vía trends24.in."""
+    clave, ruta, nombre = pais
+    try:
+        h = bajar("https://trends24.in/" + ruta).decode("utf-8", "replace")
+    except Exception as e:
+        return clave, [], str(e)[:80]
+    i = h.find("trend-link")
+    bloque = h[i:h.find("</ol>", i)] if i >= 0 else ""
+    out = []
+    for m in re.finditer(r'href="([^"]+)" class=trend-link>(.*?)</a><span class=tweet-count data-count="?(\d*)', bloque):
+        out.append({"termino": html.unescape(m.group(2)), "posts": int(m.group(3) or 0),
+                    "link": m.group(1).replace("twitter.com", "x.com"), "pais": nombre})
+    return clave, out[:30], None if out else "sin datos"
+
+def leer_bluesky():
+    try:
+        d = json.loads(bajar("https://public.api.bsky.app/xrpc/app.bsky.unspecced.getTrends?limit=25"))
+    except Exception as e:
+        return [], str(e)[:80]
+    out = []
+    for t in d.get("trends", []):
+        out.append({"tema": t.get("displayName", ""), "descripcion": t.get("description", ""),
+                    "posts": t.get("postCount", 0), "categoria": t.get("category", ""),
+                    "estado": t.get("status", ""), "desde": t.get("startedAt", ""),
+                    "link": "https://bsky.app" + t.get("link", "")})
+    return out, None
+
+def leer_mastodon():
+    out, error = [], None
+    for inst in ("mastodon.social", "mstdn.social"):
+        try:
+            d = json.loads(bajar(f"https://{inst}/api/v1/trends/links?limit=20"))
+        except Exception as e:
+            error = str(e)[:80]
+            continue
+        for l in d:
+            usos = sum(int(x.get("uses", 0)) for x in (l.get("history") or [])[:2])
+            out.append({"titulo": limpiar(l.get("title")), "link": l.get("url", ""),
+                        "medio": l.get("provider_name") or inst, "compartido": usos,
+                        "fecha": l.get("published_at") or ""})
+    vistos, unicos = set(), []
+    for l in sorted(out, key=lambda x: -x["compartido"]):
+        if l["link"] not in vistos and l["titulo"]:
+            vistos.add(l["link"]); unicos.append(l)
+    return unicos[:30], (None if unicos else error)
+
 def palabras(t):
     t = t.lower()
     t = re.sub(r"[^\wáéíóúñü ]+", " ", t)
@@ -333,6 +390,9 @@ def main():
         res_feeds = list(ex.map(leer_feed, FUENTES))
         res_trends = list(ex.map(leer_trends, PAISES_TRENDS))
         res_wiki = list(ex.map(leer_wikipedia, ["en", "es"]))
+        res_x = list(ex.map(leer_x, PAISES_X))
+        bsky, err_b = ex.submit(leer_bluesky).result()
+        masto, err_m = ex.submit(leer_mastodon).result()
     items = []
     for nombre, its, err in res_feeds:
         estado[nombre] = {"ok": err is None, "n": len(its), "error": err}
@@ -343,6 +403,22 @@ def main():
         trends += ts
     wiki = {i: arts for i, arts in res_wiki}
     estado["Wikipedia"] = {"ok": bool(wiki.get("en")), "n": sum(len(v) for v in wiki.values()), "error": None}
+    x_trends = {}
+    for clave, ts, err in res_x:
+        estado["X (Twitter) " + clave] = {"ok": err is None, "n": len(ts), "error": err}
+        x_trends[clave] = ts
+    estado["Bluesky"] = {"ok": err_b is None, "n": len(bsky), "error": err_b}
+    estado["Mastodon"] = {"ok": err_m is None, "n": len(masto), "error": err_m}
+    # Lo que se comparte en Bluesky y Mastodon también cuenta como señal social
+    for b in bsky:
+        if b["tema"]:
+            items.append({"titulo": b["tema"] + ". " + b["descripcion"], "link": b["link"], "fecha": fecha(b["desde"]) or AHORA,
+                          "medio": "Bluesky", "via": "Bluesky", "region": "Mundo", "cat": None, "tipo": "comunidad"})
+    for m in masto:
+        f = fecha(m["fecha"]) or AHORA
+        if (AHORA - f) <= timedelta(hours=VENTANA_H):
+            items.append({"titulo": m["titulo"], "link": m["link"], "fecha": f, "medio": m["medio"],
+                          "via": "Mastodon", "region": "Mundo", "cat": None, "tipo": "comunidad"})
 
     # Las noticias que Google Trends asocia a cada búsqueda también cuentan como señal
     for t in trends:
@@ -379,6 +455,22 @@ def main():
         paises = sorted({t["pais"] for t in tr_match})
         w_match = [a for (wp, a, i) in wiki_tok if wp and len(wp) <= 4 and wp <= tok]
         comunidad = sum(1 for i in its if i["tipo"] == "comunidad")
+        x_match = []
+        for ts in x_trends.values():
+            for xt in ts:
+                xp = palabras(xt["termino"].lstrip("#"))
+                if not xp or not xp <= tok or xp <= X_COMUNES:
+                    continue
+                if len(xp) == 1:
+                    w = next(iter(xp))
+                    if len(w) < 5 or w in X_COMUNES:
+                        continue
+                    if sum(1 for i in its if w in i["_p"]) < 2:
+                        continue
+                if True:
+                    x_match.append({"termino": xt["termino"], "posts": xt["posts"], "pais": xt["pais"], "link": xt["link"]})
+        redes = (["X"] if x_match else []) + sorted({i["via"].split(" r/")[0] for i in its
+                                                    if i["via"] in ("Bluesky", "Mastodon", "Hacker News") or i["via"].startswith("Reddit")})
         mas_nueva = max(i["fecha"] for i in its)
         mas_vieja = min(i["fecha"] for i in its)
         edad_h = (AHORA - mas_vieja).total_seconds() / 3600
@@ -392,6 +484,7 @@ def main():
         s += min(6, 3 * len(paises))
         s += min(6, 3 * len(w_match))
         s += min(6, 3 * comunidad)
+        s += min(8, 3 * len({x["pais"] for x in x_match}))
         s += 12 * max(0.0, 1 - ((AHORA - mas_nueva).total_seconds() / 3600) / 24)
         s = round(min(100, s))
         if recientes >= max(2, 0.5 * len(its)):
@@ -425,6 +518,8 @@ def main():
             "fuentes": [{"medio": i["medio"], "titulo": i["titulo"], "link": i["link"],
                          "fecha": i["fecha"].isoformat()} for i in list(medios.values())[:14]],
             "palabras": sorted(g["_np"])[:12],
+            "redes": redes,
+            "x": x_match[:5],
         })
     temas.sort(key=lambda t: t["puntos"], reverse=True)
     temas = temas[:250]
@@ -452,6 +547,7 @@ def main():
         "temas": temas,
         "trends": trends_out,
         "wikipedia": wiki,
+        "redes": {"x": x_trends, "bluesky": bsky, "mastodon": masto},
         "estado_fuentes": estado,
     }
     with open(os.path.join(DOCS, "data.json"), "w", encoding="utf-8") as f:
