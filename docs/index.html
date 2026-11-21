@@ -229,7 +229,7 @@ function tarjeta(t){
       <button data-act="fuentes">📰 Fuentes</button>
       <button data-act="guardar">${g?"★ Guardado":"☆ Guardar"}</button>
       <button data-act="hecho">${h?"↺ Quitar hecho":"✔ Hecho"}</button>
-      <a href="https://trends.google.com/trends/explore?date=now%207-d&q=${qtr}" target="_blank" rel="noopener">📈 Trends</a>
+      <a href="https://news.google.com/search?q=${qtr}%20when%3A1d&hl=es-419&gl=US&ceid=US%3Aes-419" target="_blank" rel="noopener">📰 Más noticias</a>
       <a href="https://www.tiktok.com/search?q=${qtt}" target="_blank" rel="noopener">🎵 ¿Ya hay en TikTok?</a>
     </div>
     <div class="fuentes"><ul>${t.fuentes.map(f=>`<li><a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.medio)}</a> — ${esc(f.titulo)} <span style="color:var(--sub)">(${hace(f.fecha)})</span></li>`).join("")}</ul>
