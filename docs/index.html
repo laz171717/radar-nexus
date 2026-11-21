@@ -120,7 +120,9 @@ function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"
 function color(p){ return p>=70?"#ff3d2e":p>=55?"#ff7a1a":p>=40?"#f5a623":"#6b7686"; }
 function idTema(t){ return (t.titulo||"").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g," ").trim().slice(0,80); }
 function esHecho(t){
-  if (hechos[idTema(t)]) return true;
+  const marca = hechos[idTema(t)];
+  if (marca === "no") return false;   // el usuario lo quitó a mano
+  if (marca) return true;
   const texto = (t.titulo+" "+(t.titulo_es||"")).toLowerCase();
   return HECHOS_REMOTO.some(k => k && texto.includes(k.toLowerCase()));
 }
@@ -290,7 +292,11 @@ function conectarTarjetas(xs){
       const act = b.dataset.act, id = idTema(t);
       if (act==="fuentes") el.querySelector(".fuentes").classList.toggle("abierto");
       if (act==="guardar"){ if(guardados[id]) delete guardados[id]; else guardados[id]=t; LS.set("radar_guardados",guardados); toast(guardados[id]?"Guardado ⭐":"Quitado"); pintar(); }
-      if (act==="hecho"){ if(hechos[id]) delete hechos[id]; else hechos[id]=Date.now(); LS.set("radar_hechos",hechos); pintar(); }
+      if (act==="hecho"){
+        if (esHecho(t)) { hechos[id] = "no"; toast("Quitado de hechos"); }
+        else { hechos[id] = Date.now(); toast("Marcado como hecho ✔"); }
+        LS.set("radar_hechos",hechos); pintar();
+      }
       if (act==="video"){
         const txt = textoVideo(t);
         try{ await navigator.clipboard.writeText(txt); toast("Copiado ✔ Pégaselo a Claude"); }
