@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Radar NEXUS</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icono.svg" type="image/svg+xml">
+<style>
+:root{
+  --bg:#0d0f14;--panel:#161a22;--panel2:#1d222c;--line:#2a303c;--txt:#e9ecf2;--sub:#9aa3b2;
+  --acento:#ff5a36;--acento2:#ffb020;--verde:#2ecc71;--amarillo:#f5c518;--rojo:#ff4d4f;--azul:#4da3ff;
+  --radio:14px;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#f4f5f8;--panel:#ffffff;--panel2:#eef0f4;--line:#dde1e8;--txt:#14171d;--sub:#5d6573;
+}}
+:root[data-theme="light"]{--bg:#f4f5f8;--panel:#ffffff;--panel2:#eef0f4;--line:#dde1e8;--txt:#14171d;--sub:#5d6573;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--azul);text-decoration:none}
+header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:10px;padding:12px 16px 6px;max-width:1200px;margin:auto}
+.logo{font-weight:800;font-size:20px;letter-spacing:.3px}
+.logo b{color:var(--acento)}
+.estado{margin-left:auto;font-size:12px;color:var(--sub);text-align:right}
+.btn-ico{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:7px 10px;cursor:pointer;font-size:14px}
+nav{display:flex;gap:6px;padding:4px 16px 10px;max-width:1200px;margin:auto;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:none;background:none;border:1px solid var(--line);color:var(--sub);padding:7px 12px;border-radius:999px;font-size:14px;cursor:pointer}
+nav button.on{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:600}
+main{max-width:1200px;margin:auto;padding:12px 16px 80px}
+.filtros{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.grupo{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;flex-wrap:wrap}
+.grupo button{background:none;border:0;color:var(--sub);padding:6px 10px;border-radius:9px;cursor:pointer;font-size:13px}
+.grupo button.on{background:var(--panel2);color:var(--txt);font-weight:700;box-shadow:inset 0 0 0 1px var(--line)}
+.grupo.tiempo button.on{background:var(--acento);color:#fff;box-shadow:none}
+select,input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:12px;padding:9px 12px;font-size:14px}
+input[type=search]{flex:1;min-width:180px}
+.resumen{color:var(--sub);font-size:13px;margin:4px 2px 12px}
+.lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+@media (max-width:420px){.lista{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radio);padding:14px;display:flex;flex-direction:column;gap:8px;position:relative}
+.card.hecho{opacity:.55}
+.cab{display:flex;gap:12px;align-items:flex-start}
+.puntos{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:18px;color:#fff;position:relative}
+.puntos small{position:absolute;bottom:-6px;font-size:10px;background:var(--panel);color:var(--txt);padding:0 5px;border-radius:6px;border:1px solid var(--line)}
+.titulo{font-weight:700;font-size:16px;line-height:1.3}
+.orig{font-size:12px;color:var(--sub);margin-top:3px}
+.meta{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}
+.tag{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--sub)}
+.tag.verde{color:var(--verde);border-color:color-mix(in srgb,var(--verde) 40%,var(--line))}
+.tag.amarillo{color:var(--amarillo);border-color:color-mix(in srgb,var(--amarillo) 40%,var(--line))}
+.tag.rojo{color:var(--rojo);border-color:color-mix(in srgb,var(--rojo) 40%,var(--line))}
+.tag.sube{color:var(--verde)} .tag.baja{color:var(--sub)}
+.tag.busq{color:var(--acento2)}
+.acciones{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.acciones button,.acciones a{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:6px 9px;font-size:13px;cursor:pointer}
+.acciones .video{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:600}
+.fuentes{display:none;border-top:1px dashed var(--line);padding-top:8px;font-size:13px}
+.fuentes.abierto{display:block}
+.fuentes li{margin:4px 0}
+.fuentes ul{margin:0;padding-left:18px}
+.vacio{text-align:center;color:var(--sub);padding:50px 10px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:var(--radio);overflow:hidden;border:1px solid var(--line)}
+td,th{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
+th{color:var(--sub);font-weight:600;font-size:12px}
+.barra{height:6px;background:var(--acento2);border-radius:3px;margin-top:4px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--txt);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:50}
+.toast.ver{opacity:1}
+.ayuda{background:var(--panel);border:1px solid var(--line);border-radius:var(--radio);padding:14px 16px;margin-bottom:12px;font-size:14px}
+.ayuda h3{margin:0 0 6px;font-size:15px}
+.ayuda ul{margin:0;padding-left:18px}
+.fuente-ok{color:var(--verde)} .fuente-mal{color:var(--rojo)}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="logo">📡 Radar <b>NEXUS</b></div>
+    <div class="estado" id="estado">Cargando…</div>
+    <button class="btn-ico" id="recargar" title="Actualizar">↻</button>
+    <button class="btn-ico" id="tema" title="Claro / oscuro">◐</button>
+  </div>
+  <nav id="tabs">
+    <button data-tab="temas" class="on">🔥 Tendencias</button>
+    <button data-tab="google">🔎 Lo más buscado</button>
+    <button data-tab="wiki">📚 Wikipedia en alza</button>
+    <button data-tab="guardados">⭐ Guardados</button>
+    <button data-tab="info">ℹ️ Cómo funciona</button>
+  </nav>
+</header>
+<main id="main"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let DATOS = null, HECHOS_REMOTO = [];
+const st = Object.assign({tab:"temas", horas:24, region:"Todas", cat:"SinDeportes", sem:"Todos", orden:"puntos", q:""}, LS.get("radar_filtros", {}));
+st.tab = "temas";
+let guardados = LS.get("radar_guardados", {});
+let hechos = LS.get("radar_hechos", {});
+
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("ver"); setTimeout(()=>t.classList.remove("ver"),1800); }
+function hace(iso){
+  const m = Math.max(0, (Date.now() - new Date(iso).getTime())/60000);
+  if (m < 60) return `hace ${Math.round(m)} min`;
+  const h = m/60; if (h < 24) return `hace ${Math.round(h)} h`;
+  return `hace ${Math.round(h/24)} d`;
+}
+function num(n){ if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1)+" M"; if(n>=1e3) return Math.round(n/1e3)+" mil"; return String(n); }
+function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function color(p){ return p>=70?"#ff3d2e":p>=55?"#ff7a1a":p>=40?"#f5a623":"#6b7686"; }
+function idTema(t){ return (t.titulo||"").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g," ").trim().slice(0,80); }
+function esHecho(t){
+  if (hechos[idTema(t)]) return true;
+  const texto = (t.titulo+" "+(t.titulo_es||"")).toLowerCase();
+  return HECHOS_REMOTO.some(k => k && texto.includes(k.toLowerCase()));
+}
+
+async function cargar(){
+  $("#estado").textContent = "Actualizando…";
+  try{
+    const r = await fetch("data.json?t="+Date.now()); DATOS = await r.json();
+    try{ const h = await fetch("hechos.json?t="+Date.now()); HECHOS_REMOTO = await h.json(); }catch(e){}
+    pintarEstado(); pintar();
+  }catch(e){ $("#estado").textContent = "Sin conexión"; if(!DATOS) $("#main").innerHTML = '<div class="vacio">No se pudieron cargar los datos. Revisa la conexión y toca ↻.</div>'; }
+}
+function pintarEstado(){
+  const ok = Object.values(DATOS.estado_fuentes).filter(f=>f.ok).length, tot = Object.keys(DATOS.estado_fuentes).length;
+  $("#estado").innerHTML = `Actualizado ${hace(DATOS.actualizado)}<br>${ok}/${tot} fuentes OK`;
+}
+
+function filtrarTemas(){
+  const lim = Date.now() - st.horas*3600e3;
+  const q = st.q.trim().toLowerCase();
+  let xs = DATOS.temas.filter(t => new Date(t.primera).getTime() >= lim);
+  if (st.region !== "Todas") xs = xs.filter(t => t.regiones.includes(st.region));
+  if (st.cat === "SinDeportes") xs = xs.filter(t => t.categoria !== "Deportes");
+  else if (st.cat !== "Todas") xs = xs.filter(t => t.categoria === st.cat);
+  if (st.sem === "Seguros") xs = xs.filter(t => t.semaforo === "verde");
+  else if (st.sem === "SinRojo") xs = xs.filter(t => t.semaforo !== "rojo");
+  if (st.sem === "Subiendo") xs = xs.filter(t => t.tendencia === "subiendo");
+  if (q) xs = xs.filter(t => (t.titulo+" "+t.titulo_es+" "+t.fuentes.map(f=>f.titulo).join(" ")).toLowerCase().includes(q));
+  const ord = {
+    puntos:(a,b)=>b.puntos-a.puntos,
+    nuevo:(a,b)=>new Date(b.primera)-new Date(a.primera),
+    busquedas:(a,b)=>b.busquedas-a.busquedas||b.puntos-a.puntos,
+    medios:(a,b)=>b.n_medios-a.n_medios||b.puntos-a.puntos,
+  }[st.orden];
+  return xs.sort(ord);
+}
+
+function grupoBotones(clase, clave, opciones){
+  return `<div class="grupo ${clase}">` + opciones.map(([v,l]) =>
+    `<button data-k="${clave}" data-v="${v}" class="${String(st[clave])===String(v)?"on":""}">${l}</button>`).join("") + `</div>`;
+}
+
+function tarjeta(t){
+  const sem = {verde:["🟢","Seguro para TikTok"], amarillo:["🟡","Con cuidado"], rojo:["🔴","Riesgo en TikTok"]}[t.semaforo];
+  const flecha = t.tendencia==="subiendo" ? '<span class="tag sube">↑ Subiendo</span>' : t.tendencia==="enfriando" ? '<span class="tag baja">↓ Enfriando</span>' : '<span class="tag">→ Estable</span>';
+  const busq = t.busquedas ? `<span class="tag busq">🔎 ${num(t.busquedas)} búsquedas ${t.paises_trends.join(" ")}</span>` : "";
+  const wiki = t.wikipedia.length ? `<span class="tag">📚 Wikipedia en alza</span>` : "";
+  const id = idTema(t), g = !!guardados[id], h = esHecho(t);
+  const qtr = encodeURIComponent((t.terminos_trends[0]) || (t.palabras.slice(0,3).join(" ")) || t.titulo);
+  const qtt = encodeURIComponent(t.titulo_es.split(/[:,.;—–-]/)[0].slice(0,60));
+  return `<article class="card ${h?"hecho":""}">
+    <div class="cab">
+      <div class="puntos" style="background:${color(t.puntos)}">${t.puntos}<small>🔥</small></div>
+      <div>
+        <div class="titulo">${esc(t.titulo_es)}</div>
+        ${t.titulo_es!==t.titulo?`<div class="orig">${esc(t.titulo)}</div>`:""}
+      </div>
+    </div>
+    <div class="meta">
+      ${flecha}
+      <span class="tag">🕒 ${hace(t.primera)}</span>
+      <span class="tag">📰 ${t.n_medios} medios</span>
+      ${busq}${wiki}
+      <span class="tag ${t.semaforo}" title="${esc(t.motivos.join(", "))}">${sem[0]} ${sem[1]}</span>
+      <span class="tag">${esc(t.categoria)}</span>
+      <span class="tag">${esc(t.regiones.join(" · "))}</span>
+      ${h?'<span class="tag verde">✔ Ya hicimos video</span>':""}
+    </div>
+    <div class="acciones">
+      <button class="video" data-act="video">🎬 Hacer video</button>
+      <button data-act="fuentes">📰 Fuentes</button>
+      <button data-act="guardar">${g?"★ Guardado":"☆ Guardar"}</button>
+      <button data-act="hecho">${h?"↺ Quitar hecho":"✔ Hecho"}</button>
+      <a href="https://trends.google.com/trends/explore?date=now%207-d&q=${qtr}" target="_blank" rel="noopener">📈 Trends</a>
+      <a href="https://www.tiktok.com/search?q=${qtt}" target="_blank" rel="noopener">🎵 ¿Ya hay en TikTok?</a>
+    </div>
+    <div class="fuentes"><ul>${t.fuentes.map(f=>`<li><a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.medio)}</a> — ${esc(f.titulo)} <span style="color:var(--sub)">(${hace(f.fecha)})</span></li>`).join("")}</ul>
+    ${t.motivos.length?`<p style="color:var(--sub);margin:6px 0 0">Palabras delicadas detectadas: ${esc(t.motivos.join(", "))}. Evítalas en textos y descripción.</p>`:""}</div>
+  </article>`;
+}
+
+function textoVideo(t){
+  return `Haz un video NEXUS sobre esta noticia en tendencia:
+${t.titulo_es}
+(Original: ${t.titulo})
+
+Puntuación de tendencia: ${t.puntos}/100 · ${t.n_medios} medios · ${t.busquedas?num(t.busquedas)+" búsquedas en Google":"sin dato de búsquedas"} · empezó ${hace(t.primera)}
+Semáforo TikTok: ${t.semaforo}${t.motivos.length?" (evitar: "+t.motivos.join(", ")+")":""}
+
+Fuentes:
+${t.fuentes.slice(0,8).map(f=>"- "+f.medio+": "+f.link).join("\n")}`;
+}
+
+function pintarTemas(){
+  const xs = filtrarTemas();
+  const cats = ["Economía","Tecnología","Política","Ciencia","Salud","Famosos","Deportes","General"];
+  let h = `<div class="filtros">
+    ${grupoBotones("tiempo","horas",[[24,"24 h"],[48,"48 h"],[72,"72 h"]])}
+    ${grupoBotones("","region",[["Todas","🌍 Todas"],["EE. UU.","🇺🇸 EE. UU."],["Mundo","Mundo"],["Europa","Europa"],["Latinoamérica","Latam"]])}
+  </div>
+  <div class="filtros">
+    <select id="f-cat">
+      <option value="SinDeportes">Todo menos deportes</option><option value="Todas">Todo</option>
+      ${cats.map(c=>`<option ${st.cat===c?"selected":""}>${c}</option>`).join("")}
+    </select>
+    <select id="f-sem">
+      <option value="Todos">Todos los temas</option>
+      <option value="SinRojo">Sin riesgo rojo</option>
+      <option value="Seguros">Solo 🟢 seguros</option>
+      <option value="Subiendo">Solo ↑ subiendo</option>
+    </select>
+    <select id="f-orden">
+      <option value="puntos">Orden: 🔥 tendencia</option>
+      <option value="nuevo">Orden: más nuevos</option>
+      <option value="busquedas">Orden: más buscados</option>
+      <option value="medios">Orden: más medios</option>
+    </select>
+    <input type="search" id="f-q" placeholder="Buscar palabra… (ej. Trump, IA, petróleo)" value="${esc(st.q)}">
+  </div>
+  <div class="resumen">${xs.length} temas en las últimas ${st.horas} h</div>`;
+  h += xs.length ? `<div class="lista">${xs.slice(0,120).map(tarjeta).join("")}</div>` : `<div class="vacio">No hay temas con estos filtros.</div>`;
+  $("#main").innerHTML = h;
+  $("#f-cat").value = st.cat; $("#f-sem").value = st.sem; $("#f-orden").value = st.orden;
+  $("#f-cat").onchange = e => { st.cat = e.target.value; guardarFiltros(); pintar(); };
+  $("#f-sem").onchange = e => { st.sem = e.target.value; guardarFiltros(); pintar(); };
+  $("#f-orden").onchange = e => { st.orden = e.target.value; guardarFiltros(); pintar(); };
+  let tm; $("#f-q").oninput = e => { clearTimeout(tm); tm = setTimeout(()=>{ st.q = e.target.value; guardarFiltros(); const p=e.target.selectionStart; pintar(); const n=$("#f-q"); n.focus(); n.setSelectionRange(p,p); }, 300); };
+  conectarTarjetas(xs.slice(0,120));
+}
+
+function conectarTarjetas(xs){
+  document.querySelectorAll("#main .card").forEach((el,i)=>{
+    const t = xs[i];
+    el.querySelectorAll("[data-act]").forEach(b => b.onclick = async () => {
+      const act = b.dataset.act, id = idTema(t);
+      if (act==="fuentes") el.querySelector(".fuentes").classList.toggle("abierto");
+      if (act==="guardar"){ if(guardados[id]) delete guardados[id]; else guardados[id]=t; LS.set("radar_guardados",guardados); toast(guardados[id]?"Guardado ⭐":"Quitado"); pintar(); }
+      if (act==="hecho"){ if(hechos[id]) delete hechos[id]; else hechos[id]=Date.now(); LS.set("radar_hechos",hechos); pintar(); }
+      if (act==="video"){
+        const txt = textoVideo(t);
+        try{ await navigator.clipboard.writeText(txt); toast("Copiado ✔ Pégaselo a Claude"); }
+        catch(e){ prompt("Copia este texto y pégaselo a Claude:", txt); }
+      }
+    });
+  });
+}
+
+function pintarGoogle(){
+  const paises = ["Todos", ...new Set(DATOS.trends.map(t=>t.pais_nombre))];
+  const sel = st.paisG || "EE. UU.";
+  const xs = DATOS.trends.filter(t => sel==="Todos" || t.pais_nombre===sel);
+  const max = Math.max(1, ...xs.map(t=>t.busquedas));
+  $("#main").innerHTML = `<div class="filtros"><select id="f-pais">${paises.map(p=>`<option ${p===sel?"selected":""}>${p}</option>`).join("")}</select></div>
+  <div class="resumen">Lo que la gente está buscando AHORA en Google (fuente: Google Trends, se renueva cada 30 min)</div>
+  <table><tr><th>Búsqueda</th><th>Búsquedas</th><th>Noticia relacionada</th></tr>
+  ${xs.map(t=>`<tr><td><b>${esc(t.termino_es)}</b>${t.termino_es!==t.termino?`<div class="orig">${esc(t.termino)}</div>`:""}<div class="orig">${esc(t.pais_nombre)} · ${hace(t.fecha)}</div></td>
+  <td style="white-space:nowrap">${num(t.busquedas)}+<div class="barra" style="width:${Math.max(6,100*t.busquedas/max)}%"></div></td>
+  <td>${t.noticias.slice(0,2).map(n=>`<div><a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.titulo)}</a> <span class="orig">${esc(n.medio)}</span></div>`).join("")}</td></tr>`).join("")}</table>`;
+  $("#f-pais").onchange = e => { st.paisG = e.target.value; pintar(); };
+}
+
+function pintarWiki(){
+  const idi = st.wikiIdioma || "en";
+  const xs = (DATOS.wikipedia[idi]||[]);
+  const max = Math.max(1, ...xs.map(a=>a.visitas));
+  $("#main").innerHTML = `<div class="filtros">${grupoBotones("","wikiIdioma",[["en","Wikipedia en inglés"],["es","Wikipedia en español"]])}</div>
+  <div class="resumen">Las páginas más visitadas de ayer. Cuando un nombre aparece aquí de golpe, algo está pasando con él.</div>
+  <table><tr><th>#</th><th>Página</th><th>Visitas</th></tr>
+  ${xs.map((a,i)=>`<tr><td>${i+1}</td><td><a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.articulo)}</a></td><td>${num(a.visitas)}<div class="barra" style="width:${Math.max(6,100*a.visitas/max)}%"></div></td></tr>`).join("")}</table>`;
+  document.querySelectorAll("[data-k=wikiIdioma]").forEach(b=>b.onclick=()=>{st.wikiIdioma=b.dataset.v; pintar();});
+}
+
+function pintarGuardados(){
+  const xs = Object.values(guardados);
+  $("#main").innerHTML = xs.length ? `<div class="resumen">${xs.length} ideas guardadas en este dispositivo</div><div class="lista">${xs.map(tarjeta).join("")}</div>` : `<div class="vacio">Aún no guardas ideas. Toca ☆ Guardar en un tema.</div>`;
+  conectarTarjetas(xs);
+}
+
+function pintarInfo(){
+  const f = DATOS.estado_fuentes;
+  $("#main").innerHTML = `<div class="ayuda"><h3>🔥 La puntuación (0-100)</h3><ul>
+  <li>Sube cuando la <b>misma noticia</b> sale en muchos medios a la vez.</li>
+  <li>Suma si la gente la está <b>buscando en Google</b> (Google Trends) y en cuántos países.</li>
+  <li>Suma si su página de <b>Wikipedia</b> se dispara y si se comenta en Reddit / Hacker News.</li>
+  <li>Suma más cuanto <b>más reciente</b> es.</li></ul></div>
+  <div class="ayuda"><h3>↑ ↓ Subiendo o enfriando</h3>↑ = la mayoría de las publicaciones son de las últimas 6 horas. ↓ = nadie ha publicado nada nuevo en 12 horas.</div>
+  <div class="ayuda"><h3>🟢🟡🔴 Semáforo TikTok</h3>🟢 tema tranquilo. 🟡 guerra, crimen, política: cuidar imágenes y palabras. 🔴 narco, tiroteos, muertes violentas, etc.: alto riesgo de que TikTok lo borre. Abre “Fuentes” para ver qué palabras evitar.</div>
+  <div class="ayuda"><h3>🎬 Hacer video</h3>Copia el tema con sus fuentes. Pégaselo a Claude (aquí o en la otra computadora) y hace el video.</div>
+  <div class="ayuda"><h3>✔ Hecho / ⭐ Guardar</h3>Se guardan en este teléfono o computadora. Los videos que ya hicimos también se marcan solos desde la lista común.</div>
+  <div class="ayuda"><h3>📡 Fuentes (${Object.values(f).filter(x=>x.ok).length}/${Object.keys(f).length} funcionando)</h3>
+  ${Object.entries(f).map(([k,v])=>`<div><span class="${v.ok?"fuente-ok":"fuente-mal"}">${v.ok?"●":"●"}</span> ${esc(k)} <span class="orig" style="display:inline">${v.ok? v.n+" noticias":"sin respuesta"}</span></div>`).join("")}</div>`;
+}
+
+function pintar(){
+  if (!DATOS) return;
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.tab===st.tab));
+  ({temas:pintarTemas, google:pintarGoogle, wiki:pintarWiki, guardados:pintarGuardados, info:pintarInfo})[st.tab]();
+  document.querySelectorAll("[data-k]").forEach(b => { if (b.dataset.k!=="wikiIdioma") b.onclick = () => { const v=b.dataset.v; st[b.dataset.k] = isNaN(v)?v:Number(v); guardarFiltros(); pintar(); }; });
+}
+function guardarFiltros(){ const {tab, ...resto} = st; LS.set("radar_filtros", resto); }
+
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { st.tab = b.dataset.tab; window.scrollTo(0,0); pintar(); });
+$("#recargar").onclick = cargar;
+const temaGuardado = LS.get("radar_tema", null); if (temaGuardado) document.documentElement.dataset.theme = temaGuardado;
+$("#tema").onclick = () => {
+  const oscuro = getComputedStyle(document.body).backgroundColor === "rgb(13, 15, 20)";
+  const nuevo = oscuro ? "light" : "dark"; document.documentElement.dataset.theme = nuevo; LS.set("radar_tema", nuevo);
+};
+cargar();
+setInterval(cargar, 10*60*1000);
+setInterval(()=>{ if(DATOS) pintarEstado(); }, 60*1000);
+</script>
+</body>
+</html>
