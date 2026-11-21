@@ -130,8 +130,38 @@ async function cargar(){
   try{
     const r = await fetch("data.json?t="+Date.now()); DATOS = await r.json();
     try{ const h = await fetch("hechos.json?t="+Date.now()); HECHOS_REMOTO = await h.json(); }catch(e){}
-    pintarEstado(); pintar();
+    aplicarTraducciones(); pintarEstado(); pintar(); traducirFaltantes();
   }catch(e){ $("#estado").textContent = "Sin conexión"; if(!DATOS) $("#main").innerHTML = '<div class="vacio">No se pudieron cargar los datos. Revisa la conexión y toca ↻.</div>'; }
+}
+// Traducción en el propio teléfono/computadora para títulos que llegan en otro idioma
+let TRAD = LS.get("radar_trad", {});
+function pareceEspanol(t){
+  const s = " "+t.toLowerCase()+" ";
+  const es = [" el "," la "," de "," los "," las "," y "," en "," del "," por "," que "," con "," una "].reduce((a,w)=>a+s.split(w).length-1,0);
+  const ot = [" the "," of "," and "," to "," for "," with "," is "," as "," le "," les "," et "," des "," und "," der "," die "," het "," van "," com "," ao "].reduce((a,w)=>a+s.split(w).length-1,0);
+  return es > ot && es >= 1;
+}
+function aplicarTraducciones(){
+  for (const t of DATOS.temas) if (t.titulo_es===t.titulo && TRAD[t.titulo]) t.titulo_es = TRAD[t.titulo];
+}
+let traduciendo = false;
+async function traducirFaltantes(){
+  if (traduciendo) return; traduciendo = true;
+  const falta = DATOS.temas.filter(t => t.titulo_es===t.titulo && !pareceEspanol(t.titulo)).slice(0,150);
+  let hechosN = 0;
+  const uno = async t => {
+    try{
+      const r = await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q="+encodeURIComponent(t.titulo));
+      const d = await r.json(); const tr = d[0].map(p=>p[0]).join("");
+      if (tr){ TRAD[t.titulo] = tr; t.titulo_es = tr; hechosN++; }
+    }catch(e){}
+  };
+  for (let i=0; i<falta.length; i+=6) await Promise.all(falta.slice(i,i+6).map(uno));
+  // guardar solo lo que se usa ahora
+  const usados = new Set(DATOS.temas.map(t=>t.titulo)); for (const k in TRAD) if (!usados.has(k)) delete TRAD[k];
+  LS.set("radar_trad", TRAD);
+  traduciendo = false;
+  if (hechosN && (st.tab==="temas" || st.tab==="guardados") && !(document.activeElement && document.activeElement.id==="f-q")) pintar();
 }
 function pintarEstado(){
   const ok = Object.values(DATOS.estado_fuentes).filter(f=>f.ok).length, tot = Object.keys(DATOS.estado_fuentes).length;
