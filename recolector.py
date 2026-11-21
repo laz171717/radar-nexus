@@ -370,17 +370,24 @@ def cargar_cache():
 def traducir(textos, cache):
     pendientes = [t for t in textos if t not in cache]
     def uno(t):
-        url = ("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q="
-               + urllib.parse.quote(t))
-        try:
-            d = json.loads(bajar(url, 10))
-            return t, "".join(p[0] for p in d[0] if p and p[0])
-        except Exception:
-            return t, None
-    with ThreadPoolExecutor(8) as ex:
-        for t, tr in ex.map(uno, pendientes[:400]):
+        for intento in range(3):
+            for host in ("translate.googleapis.com", "clients5.google.com"):
+                url = (f"https://{host}/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=" + urllib.parse.quote(t))
+                try:
+                    d = json.loads(bajar(url, 10))
+                    return t, "".join(p[0] for p in d[0] if p and p[0])
+                except Exception:
+                    pass
+            time.sleep(1.5 * (intento + 1))
+        return t, None
+    fallos = 0
+    with ThreadPoolExecutor(4) as ex:
+        for t, tr in ex.map(uno, pendientes[:300]):
             if tr:
                 cache[t] = tr
+            else:
+                fallos += 1
+    print(f"Traducciones nuevas: {len(pendientes) - fallos}, fallidas: {fallos}")
     return cache
 
 def main():
