@@ -317,7 +317,7 @@ function pintarGoogle(){
 function pintarRedes(){
   const R = DATOS.redes || {x:{}, bluesky:[], mastodon:[]};
   const paisesX = [["worldwide","🌍 Mundo"],["united-states","🇺🇸 EE. UU."],["united-kingdom","🇬🇧 R. Unido"],["spain","🇪🇸 España"],["mexico","🇲🇽 México"],["argentina","🇦🇷 Argentina"],["colombia","🇨🇴 Colombia"]];
-  const px = st.paisX || "worldwide";
+  const px = st.paisX || "united-states";
   const sec = st.redSec || "x";
   const xs = (R.x[px]||[]);
   const maxX = Math.max(1, ...xs.map(t=>t.posts));
