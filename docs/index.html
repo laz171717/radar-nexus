@@ -224,7 +224,8 @@ function tarjeta(t){
       ${h?'<span class="tag verde">✔ Ya hicimos video</span>':""}
     </div>
     <div class="acciones">
-      <button class="video" data-act="video">🎬 Hacer video</button>
+      <button class="video" data-act="video">📋 Copiar para Claude</button>
+      <button data-act="compartir">📤 Enviar</button>
       <button data-act="fuentes">📰 Fuentes</button>
       <button data-act="guardar">${g?"★ Guardado":"☆ Guardar"}</button>
       <button data-act="hecho">${h?"↺ Quitar hecho":"✔ Hecho"}</button>
@@ -299,8 +300,21 @@ function conectarTarjetas(xs){
       }
       if (act==="video"){
         const txt = textoVideo(t);
-        try{ await navigator.clipboard.writeText(txt); toast("Copiado ✔ Pégaselo a Claude"); }
-        catch(e){ prompt("Copia este texto y pégaselo a Claude:", txt); }
+        let ok = false;
+        try{ await navigator.clipboard.writeText(txt); ok = true; }catch(e){}
+        if (!ok){ // plan B para teléfonos que bloquean el portapapeles
+          const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
+          document.body.appendChild(ta); ta.focus(); ta.select();
+          try{ ok = document.execCommand("copy"); }catch(e){}
+          ta.remove();
+        }
+        if (ok) toast("Copiado ✔ Ahora pégalo en el chat con Claude");
+        else prompt("Mantén el dedo sobre el texto, copia y pégaselo a Claude:", txt);
+      }
+      if (act==="compartir"){
+        const txt = textoVideo(t);
+        if (navigator.share){ try{ await navigator.share({title:"Radar NEXUS", text:txt}); }catch(e){} }
+        else { try{ await navigator.clipboard.writeText(txt); toast("Copiado ✔"); }catch(e){ prompt("Copia este texto:", txt); } }
       }
     });
   });
@@ -385,7 +399,7 @@ function pintarInfo(){
   <li>Suma más cuanto <b>más reciente</b> es.</li></ul></div>
   <div class="ayuda"><h3>↑ ↓ Subiendo o enfriando</h3>↑ = la mayoría de las publicaciones son de las últimas 6 horas. ↓ = nadie ha publicado nada nuevo en 12 horas.</div>
   <div class="ayuda"><h3>🟢🟡🔴 Semáforo TikTok</h3>🟢 tema tranquilo. 🟡 guerra, crimen, política: cuidar imágenes y palabras. 🔴 narco, tiroteos, muertes violentas, etc.: alto riesgo de que TikTok lo borre. Abre “Fuentes” para ver qué palabras evitar.</div>
-  <div class="ayuda"><h3>🎬 Hacer video</h3>Copia el tema con sus fuentes. Pégaselo a Claude (aquí o en la otra computadora) y hace el video.</div>
+  <div class="ayuda"><h3>📋 Copiar para Claude / 📤 Enviar</h3><b>Copiar</b>: copia el tema con sus fuentes; luego abre el chat con Claude, mantén el dedo en la caja de escribir y toca <b>Pegar</b>. <b>Enviar</b>: abre el menú de compartir del teléfono para mandarlo directo a la app de Claude, WhatsApp, etc.</div>
   <div class="ayuda"><h3>✔ Hecho / ⭐ Guardar</h3>Se guardan en este teléfono o computadora. Los videos que ya hicimos también se marcan solos desde la lista común.</div>
   <div class="ayuda"><h3>📡 Fuentes (${Object.values(f).filter(x=>x.ok).length}/${Object.keys(f).length} funcionando)</h3>
   ${Object.entries(f).map(([k,v])=>`<div><span class="${v.ok?"fuente-ok":"fuente-mal"}">${v.ok?"●":"●"}</span> ${esc(k)} <span class="orig" style="display:inline">${v.ok? v.n+" noticias":"sin respuesta"}</span></div>`).join("")}</div>`;
