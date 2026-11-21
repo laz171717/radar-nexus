@@ -370,7 +370,7 @@ def cargar_cache():
 def traducir(textos, cache):
     pendientes = [t for t in textos if t not in cache]
     def uno(t):
-        for intento in range(3):
+        for intento in range(2):
             for host in ("translate.googleapis.com", "clients5.google.com"):
                 url = (f"https://{host}/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=" + urllib.parse.quote(t))
                 try:
@@ -381,6 +381,14 @@ def traducir(textos, cache):
             time.sleep(1.5 * (intento + 1))
         return t, None
     fallos = 0
+    if pendientes:
+        # Si el traductor está bloqueado (pasa en GitHub), no perder minutos: lo traduce el navegador
+        prueba, tr = uno(pendientes[0])
+        if not tr:
+            print("Traductor no disponible aquí; se traducirá en el navegador")
+            return cache
+        cache[prueba] = tr
+        pendientes = pendientes[1:]
     with ThreadPoolExecutor(4) as ex:
         for t, tr in ex.map(uno, pendientes[:300]):
             if tr:
