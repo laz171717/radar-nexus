@@ -74,6 +74,27 @@ th{color:var(--sub);font-weight:600;font-size:12px}
 .ayuda h3{margin:0 0 6px;font-size:15px}
 .ayuda ul{margin:0;padding-left:18px}
 .fuente-ok{color:var(--verde)} .fuente-mal{color:var(--rojo)}
+.abrir{cursor:pointer}
+.abrir:active{opacity:.7}
+.tag.link{cursor:pointer;color:var(--azul);border-color:color-mix(in srgb,var(--azul) 40%,var(--line))}
+.det-fondo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:flex;justify-content:center;align-items:flex-end}
+.det{background:var(--bg);width:100%;max-width:760px;height:94vh;border-radius:20px 20px 0 0;overflow-y:auto;padding:0 16px 40px;border:1px solid var(--line)}
+@media (min-width:800px){.det-fondo{align-items:center}.det{height:90vh;border-radius:20px}}
+.det-cab{position:sticky;top:0;background:var(--bg);padding:14px 0 10px;display:flex;gap:10px;align-items:center;z-index:2;border-bottom:1px solid var(--line)}
+.det-cab .cerrar{margin-left:auto;font-size:16px;padding:8px 14px}
+.det h2{font-size:21px;line-height:1.3;margin:14px 0 4px}
+.det h4{margin:18px 0 8px;font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px}
+.bloque{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.chequeo div{padding:3px 0}
+.fila{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:14px}
+.fila .nom{width:150px;flex:none;color:var(--sub)}
+.fila .bar{flex:1;height:10px;background:var(--panel2);border-radius:5px;overflow:hidden}
+.fila .bar i{display:block;height:100%;background:var(--acento2);border-radius:5px}
+.fila .val{width:44px;text-align:right;font-weight:700}
+.crono{list-style:none;margin:0;padding:0 0 0 14px;border-left:2px solid var(--line)}
+.crono li{position:relative;margin:0 0 12px;padding-left:8px;font-size:14px}
+.crono li:before{content:"";position:absolute;left:-21px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--acento)}
+.crono .hora{font-size:12px;color:var(--sub)}
 </style>
 </head>
 <body>
@@ -206,7 +227,7 @@ function tarjeta(t){
   const qtr = encodeURIComponent((t.terminos_trends[0]) || (t.palabras.slice(0,3).join(" ")) || t.titulo);
   const qtt = encodeURIComponent(t.titulo_es.split(/[:,.;—–-]/)[0].slice(0,60));
   return `<article class="card ${h?"hecho":""}">
-    <div class="cab">
+    <div class="cab abrir" data-act="ver">
       <div class="puntos" style="background:${color(t.puntos)}">${t.puntos}<small>🔥</small></div>
       <div>
         <div class="titulo">${esc(t.titulo_es)}</div>
@@ -216,7 +237,7 @@ function tarjeta(t){
     <div class="meta">
       ${flecha}
       <span class="tag">🕒 ${hace(t.primera)}</span>
-      <span class="tag">📰 ${t.n_medios} medios</span>
+      <span class="tag link" data-act="ver">📰 ${t.n_medios} medios ›</span>
       ${busq}${redes}${wiki}
       <span class="tag ${t.semaforo}" title="${esc(t.motivos.join(", "))}">${sem[0]} ${sem[1]}</span>
       <span class="tag">${esc(t.categoria)}</span>
@@ -225,6 +246,7 @@ function tarjeta(t){
     </div>
     <div class="acciones">
       <button class="video" data-act="video">📋 Copiar para Claude</button>
+      <button data-act="ver">🔍 Ver a fondo</button>
       <button data-act="compartir">📤 Enviar</button>
       <button data-act="fuentes">📰 Fuentes</button>
       <button data-act="guardar">${g?"★ Guardado":"☆ Guardar"}</button>
@@ -289,9 +311,14 @@ function pintarTemas(){
 function conectarTarjetas(xs){
   document.querySelectorAll("#main .card").forEach((el,i)=>{
     const t = xs[i];
-    el.querySelectorAll("[data-act]").forEach(b => b.onclick = async () => {
-      const act = b.dataset.act, id = idTema(t);
-      if (act==="fuentes") el.querySelector(".fuentes").classList.toggle("abierto");
+    el.querySelectorAll("[data-act]").forEach(b => b.onclick = ev => { ev.stopPropagation(); accion(b.dataset.act, t, el, b); });
+  });
+}
+
+async function accion(act, t, el, b){
+      const id = idTema(t);
+      if (act==="ver") return abrirDetalle(t);
+      if (act==="fuentes" && el) el.querySelector(".fuentes").classList.toggle("abierto");
       if (act==="guardar"){ if(guardados[id]) delete guardados[id]; else guardados[id]=t; LS.set("radar_guardados",guardados); toast(guardados[id]?"Guardado ⭐":"Quitado"); pintar(); }
       if (act==="hecho"){
         if (esHecho(t)) { hechos[id] = "no"; toast("Quitado de hechos"); }
@@ -316,9 +343,99 @@ function conectarTarjetas(xs){
         if (navigator.share){ try{ await navigator.share({title:"Radar NEXUS", text:txt}); }catch(e){} }
         else { try{ await navigator.clipboard.writeText(txt); toast("Copiado ✔"); }catch(e){ prompt("Copia este texto:", txt); } }
       }
-    });
-  });
+      if (DET && (act==="guardar" || act==="hecho")) abrirDetalle(t, true);
 }
+
+// ---------- Vista ampliada de una noticia ----------
+let DET = null;
+function desglose(t){
+  // misma fórmula que recolector.py (aprox.: usa n_medios en lugar de medios editoriales)
+  const nueva = (Date.now()-new Date(t.ultima||t.primera))/3600e3;
+  const xp = new Set((t.x||[]).map(x=>x.pais)).size;
+  const com = (t.redes||[]).filter(r=>r!=="X").length;
+  return [
+    ["📰 Medios", Math.min(55, 14*Math.log2(1+t.n_medios)), 55],
+    ["🔎 Búsquedas Google", t.busquedas ? Math.min(t.n_medios>=2?15:8, 3*Math.log10(1+t.busquedas)) : 0, 15],
+    ["🌍 Países buscando", Math.min(6, 3*t.paises_trends.length), 6],
+    ["📚 Wikipedia", Math.min(6, 3*t.wikipedia.length), 6],
+    ["💬 Comunidades", Math.min(6, 3*com), 6],
+    ["𝕏 Tendencia en X", Math.min(8, 3*xp), 8],
+    ["⏱️ Frescura", 12*Math.max(0, 1-nueva/24), 12],
+  ];
+}
+function fechaLarga(iso){ return new Date(iso).toLocaleString("es-ES",{weekday:"long",day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}); }
+function abrirDetalle(t, refrescar){
+  const h = esHecho(t), g = !!guardados[idTema(t)];
+  const sem = {verde:["🟢","Seguro para TikTok"], amarillo:["🟡","Con cuidado"], rojo:["🔴","Riesgo en TikTok"]}[t.semaforo];
+  const edad = (Date.now()-new Date(t.primera))/3600e3;
+  const soloLatam = t.regiones.length===1 && t.regiones[0]==="Latinoamérica";
+  const chequeo = [
+    [edad<=24, edad<=48, `Empezó ${hace(t.primera)} — ${edad<=24?"está fresca":"ya tiene más de 24 h"}`],
+    [t.tendencia==="subiendo", t.tendencia!=="enfriando", t.tendencia==="subiendo"?"Sigue subiendo ahora mismo":t.tendencia==="enfriando"?"Se está enfriando: nadie publica nada nuevo":"Estable"],
+    [!soloLatam, true, soloLatam?"Solo se habla en Latinoamérica (revisa que no sea tema local)":"Se habla en: "+t.regiones.join(", ")],
+    [t.semaforo==="verde", t.semaforo!=="rojo", sem[0]+" "+sem[1]+(t.motivos.length?" — evitar: "+t.motivos.join(", "):"")],
+    [!h, true, h?"Ya hicimos video de esto":"Todavía no hicimos video"],
+  ];
+  const ic = ([ok,medio]) => ok?"✅":medio?"⚠️":"❌";
+  const des = desglose(t);
+  const fuentes = [...t.fuentes].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+  const qtr = encodeURIComponent((t.terminos_trends[0]) || (t.palabras.slice(0,3).join(" ")) || t.titulo);
+  const qtt = encodeURIComponent(t.titulo_es.split(/[:,.;—–-]/)[0].slice(0,60));
+  const html = `<div class="det" role="dialog" aria-label="Noticia ampliada">
+    <div class="det-cab"><div class="puntos" style="background:${color(t.puntos)};width:44px;height:44px;font-size:16px">${t.puntos}</div>
+      <b>Noticia a fondo</b><button class="btn-ico cerrar" id="det-cerrar">✕ Cerrar</button></div>
+    <h2>${esc(t.titulo_es)}</h2>
+    ${t.titulo_es!==t.titulo?`<div class="orig">${esc(t.titulo)}</div>`:""}
+    <div class="meta" style="margin-top:10px"><span class="tag">${esc(t.categoria)}</span><span class="tag ${t.semaforo}">${sem[0]} ${sem[1]}</span><span class="tag">🕒 ${hace(t.primera)}</span>${h?'<span class="tag verde">✔ Ya hicimos video</span>':""}</div>
+
+    <h4>¿Sirve para un video NEXUS?</h4>
+    <div class="bloque chequeo">${chequeo.map(c=>`<div>${ic(c)} ${esc(c[2])}</div>`).join("")}</div>
+
+    <h4>¿Por qué tiene ${t.puntos} puntos?</h4>
+    <div class="bloque">${des.map(([n,v,m])=>`<div class="fila"><span class="nom">${n}</span><span class="bar"><i style="width:${Math.round(100*v/m)}%"></i></span><span class="val">${Math.round(v)}/${m}</span></div>`).join("")}
+      <div class="orig" style="margin-top:6px">Cálculo aproximado. ${t.n_medios} medios la publicaron.</div></div>
+
+    <h4>⏱️ Cuándo pasó</h4>
+    <div class="bloque">Primera publicación: <b>${fechaLarga(t.primera)}</b><br>Última: <b>${fechaLarga(t.ultima||t.primera)}</b></div>
+
+    ${t.busquedas||t.terminos_trends.length?`<h4>🔎 Qué busca la gente en Google</h4><div class="bloque">
+      ${t.busquedas?`<div><b>${num(t.busquedas)}</b> búsquedas · países: ${esc(t.paises_trends.join(", "))}</div>`:""}
+      <div class="meta" style="margin-top:6px">${t.terminos_trends.map(x=>`<a class="tag link" target="_blank" rel="noopener" href="https://trends.google.com/trends/explore?date=now%201-d&q=${encodeURIComponent(x)}">${esc(x)}</a>`).join("")}</div></div>`:""}
+
+    ${(t.x||[]).length||(t.redes||[]).length?`<h4>📱 En redes</h4><div class="bloque">
+      ${(t.x||[]).map(x=>`<div><a href="${esc(x.link)}" target="_blank" rel="noopener">𝕏 ${esc(x.termino)}</a> <span class="orig" style="display:inline">${x.posts?num(x.posts)+" publicaciones · ":""}${esc(x.pais)}</span></div>`).join("")}
+      ${(t.redes||[]).filter(r=>r!=="X").length?`<div class="orig">También en: ${esc(t.redes.filter(r=>r!=="X").join(", "))}</div>`:""}</div>`:""}
+
+    ${t.wikipedia.length?`<h4>📚 Wikipedia</h4><div class="bloque">${t.wikipedia.map(w=>`<div><a href="${esc(w.link)}" target="_blank" rel="noopener">${esc(w.articulo)}</a> <span class="orig" style="display:inline">${num(w.visitas)} visitas ayer</span></div>`).join("")}</div>`:""}
+
+    <h4>📰 Cómo la fueron contando los medios (${fuentes.length})</h4>
+    <div class="bloque"><ul class="crono">${fuentes.map(f=>`<li><div class="hora">${hace(f.fecha)} · ${esc(f.medio)}</div><a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.titulo)}</a></li>`).join("")}</ul></div>
+
+    <h4>Acciones</h4>
+    <div class="acciones">
+      <button class="video" data-act="video">📋 Copiar para Claude</button>
+      <button data-act="compartir">📤 Enviar</button>
+      <button data-act="guardar">${g?"★ Guardado":"☆ Guardar"}</button>
+      <button data-act="hecho">${h?"↺ Quitar hecho":"✔ Hecho"}</button>
+      <a href="https://news.google.com/search?q=${qtr}%20when%3A1d&hl=es-419&gl=US&ceid=US%3Aes-419" target="_blank" rel="noopener">📰 Más noticias</a>
+      <a href="https://www.tiktok.com/search?q=${qtt}" target="_blank" rel="noopener">🎵 ¿Ya hay en TikTok?</a>
+    </div>
+  </div>`;
+  if (!DET){
+    DET = document.createElement("div"); DET.className = "det-fondo";
+    DET.onclick = e => { if (e.target===DET) history.back(); };
+    document.body.appendChild(DET); document.body.style.overflow = "hidden";
+    history.pushState({det:1}, "");
+  }
+  const scroll = refrescar && DET.firstChild ? DET.firstChild.scrollTop : 0;
+  DET.innerHTML = html;
+  DET.firstChild.scrollTop = scroll;
+  $("#det-cerrar").onclick = () => history.back();
+  DET.querySelectorAll("[data-act]").forEach(b => b.onclick = ev => { ev.stopPropagation(); accion(b.dataset.act, t, null, b); });
+}
+function cerrarDetalle(){ if (DET){ DET.remove(); DET = null; document.body.style.overflow = ""; } }
+window.addEventListener("popstate", cerrarDetalle);
+document.addEventListener("keydown", e => { if (e.key==="Escape" && DET) history.back(); });
 
 function pintarGoogle(){
   const paises = ["Todos", ...new Set(DATOS.trends.map(t=>t.pais_nombre))];
@@ -400,6 +517,7 @@ function pintarInfo(){
   <div class="ayuda"><h3>↑ ↓ Subiendo o enfriando</h3>↑ = la mayoría de las publicaciones son de las últimas 6 horas. ↓ = nadie ha publicado nada nuevo en 12 horas.</div>
   <div class="ayuda"><h3>🟢🟡🔴 Semáforo TikTok</h3>🟢 tema tranquilo. 🟡 guerra, crimen, política: cuidar imágenes y palabras. 🔴 narco, tiroteos, muertes violentas, etc.: alto riesgo de que TikTok lo borre. Abre “Fuentes” para ver qué palabras evitar.</div>
   <div class="ayuda"><h3>📋 Copiar para Claude / 📤 Enviar</h3><b>Copiar</b>: copia el tema con sus fuentes; luego abre el chat con Claude, mantén el dedo en la caja de escribir y toca <b>Pegar</b>. <b>Enviar</b>: abre el menú de compartir del teléfono para mandarlo directo a la app de Claude, WhatsApp, etc.</div>
+  <div class="ayuda"><h3>🔍 Ver a fondo</h3>Toca el título, la puntuación, «📰 N medios ›» o el botón <b>🔍 Ver a fondo</b>: se abre la noticia ampliada con el chequeo para NEXUS, por qué tiene esos puntos, cuándo pasó, qué busca la gente y cómo la contó cada medio. Se cierra con ✕ o con el botón Atrás del teléfono.</div>
   <div class="ayuda"><h3>✔ Hecho / ⭐ Guardar</h3>Se guardan en este teléfono o computadora. Los videos que ya hicimos también se marcan solos desde la lista común.</div>
   <div class="ayuda"><h3>📡 Fuentes (${Object.values(f).filter(x=>x.ok).length}/${Object.keys(f).length} funcionando)</h3>
   ${Object.entries(f).map(([k,v])=>`<div><span class="${v.ok?"fuente-ok":"fuente-mal"}">${v.ok?"●":"●"}</span> ${esc(k)} <span class="orig" style="display:inline">${v.ok? v.n+" noticias":"sin respuesta"}</span></div>`).join("")}</div>`;
