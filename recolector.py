@@ -425,13 +425,16 @@ def main():
     estado["Bluesky"] = {"ok": err_b is None, "n": len(bsky), "error": err_b}
     estado["Mastodon"] = {"ok": err_m is None, "n": len(masto), "error": err_m}
     # Lo que se comparte en Bluesky y Mastodon también cuenta como señal social
+    # Solo cuentan los que tienen fecha real y dentro de la ventana (antes entraban avisos de hace 1-2 semanas
+    # y hacían parecer viejos temas frescos; sin fecha ya no se les pone «ahora»)
     for b in bsky:
-        if b["tema"]:
-            items.append({"titulo": b["tema"] + ". " + b["descripcion"], "link": b["link"], "fecha": fecha(b["desde"]) or AHORA,
+        fb = fecha(b["desde"])
+        if b["tema"] and fb and (AHORA - fb) <= timedelta(hours=VENTANA_H):
+            items.append({"titulo": b["tema"] + ". " + b["descripcion"], "link": b["link"], "fecha": fb,
                           "medio": "Bluesky", "via": "Bluesky", "region": "Mundo", "cat": None, "tipo": "comunidad"})
     for m in masto:
-        f = fecha(m["fecha"]) or AHORA
-        if (AHORA - f) <= timedelta(hours=VENTANA_H):
+        f = fecha(m["fecha"])
+        if f and (AHORA - f) <= timedelta(hours=VENTANA_H):
             items.append({"titulo": m["titulo"], "link": m["link"], "fecha": f, "medio": m["medio"],
                           "via": "Mastodon", "region": "Mundo", "cat": None, "tipo": "comunidad"})
 

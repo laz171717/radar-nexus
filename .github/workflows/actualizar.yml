@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: github-pages
-      url: ${{ steps.publicar.outputs.page_url }}
+      url: ${{ steps.publicar1.outputs.page_url || steps.publicar2.outputs.page_url || steps.publicar.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,5 +42,19 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+      # GitHub a veces falla al publicar («No artifacts named github-pages», «try again later»):
+      # se reintenta hasta 2 veces más tras esperar, para que la página no se quede con datos viejos
+      - id: publicar1
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - if: steps.publicar1.outcome == 'failure'
+        run: sleep 45
+      - id: publicar2
+        if: steps.publicar1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - if: steps.publicar1.outcome == 'failure' && steps.publicar2.outcome == 'failure'
+        run: sleep 90
       - id: publicar
+        if: steps.publicar1.outcome == 'failure' && steps.publicar2.outcome == 'failure'
         uses: actions/deploy-pages@v4

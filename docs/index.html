@@ -188,7 +188,9 @@ async function traducirFaltantes(){
 }
 function pintarEstado(){
   const ok = Object.values(DATOS.estado_fuentes).filter(f=>f.ok).length, tot = Object.keys(DATOS.estado_fuentes).length;
-  $("#estado").innerHTML = `Actualizado ${hace(DATOS.actualizado)}<br>${ok}/${tot} fuentes OK`;
+  const viejoH = (Date.now()-new Date(DATOS.actualizado))/3600e3;
+  const aviso = viejoH > 2 ? `<br><b style="color:#ff5a5a">⚠ Datos de hace ${Math.round(viejoH)} h: la actualización automática falló</b>` : "";
+  $("#estado").innerHTML = `Actualizado ${hace(DATOS.actualizado)}<br>${ok}/${tot} fuentes OK${aviso}`;
 }
 
 function filtrarTemas(){
